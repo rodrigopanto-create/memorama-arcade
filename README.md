@@ -56,13 +56,17 @@ wasm-bindgen ni un CDN; respeta `Cargo.lock` y `CARGO_TARGET_DIR`.
 
 ## Controles y comportamiento web
 
-Haz clic o toca las cartas. Enter/Espacio inicia el juego; las flechas y
-Enter/Espacio permiten registrar iniciales. Los botones bajo el canvas
-ofrecen esos controles sin teclado físico.
+Haz clic o toca para iniciar y descubrir cartas. Para registrar iniciales,
+toca cada letra para avanzar de A a Z y pulsa **GUARDAR** dentro del juego.
+Enter/Espacio y las flechas siguen disponibles como alternativa de teclado.
+No hay controles externos debajo del canvas.
 
-En web se conserva un área lógica de 800x600 que se ajusta proporcionalmente
-a la pantalla, incluido el mapeo de clics y toques. En escritorio se mantiene
-el tamaño de ventana original. Se usa la aleatoriedad de Macroquad para
+En web el juego ocupa toda la pantalla disponible, respetando las zonas
+seguras del teléfono. En vertical usa un ancho lógico de 400 y reorganiza
+los tableros en 3x4, 4x4 y 4x6; en horizontal usa 800 de ancho y tableros
+4x3, 4x4 y 6x4. La altura sigue la proporción real de la pantalla, sin estirar
+las cartas. El HUD se divide en dos líneas y los clics/toques se escalan.
+En escritorio se mantiene el tamaño de ventana original. Se usa la aleatoriedad de Macroquad para
 barajar en ambos destinos sin dependencias de JavaScript adicionales.
 El loader incluido cubre la configuración actual sin audio (los efectos son
 stubs). Si activas la feature `audio` de Macroquad u otros plugins, también

@@ -18,21 +18,13 @@
 </head>
 <body>
   <header>
-    <h1>Memorama Arcade</h1>
     <button id="install" hidden>Instalar</button>
     <button id="update" hidden>Actualizar juego</button>
   </header>
   <main>
     <p id="status" role="status">Cargando el juego...</p>
-    <canvas id="glcanvas" tabindex="0" width="800" height="600" aria-label="Memorama. Toca o haz clic para jugar. Usa las flechas y Enter para registrar tus iniciales."></canvas>
-    <nav id="controls" aria-label="Controles para iniciales">
-      <button data-code="ArrowLeft" aria-label="Letra anterior">&#8592;</button>
-      <button data-code="ArrowUp" aria-label="Subir letra">&#8593;</button>
-      <button data-code="ArrowDown" aria-label="Bajar letra">&#8595;</button>
-      <button data-code="ArrowRight" aria-label="Letra siguiente">&#8594;</button>
-      <button data-code="Enter">OK / Iniciar</button>
-    </nav>
-    <p id="offline" role="status">Preparando modo sin conexion...</p>
+    <canvas id="glcanvas" tabindex="0" width="400" height="800" aria-label="Memorama. Toca o haz clic para jugar. Toca las letras y Guardar para registrar tus iniciales."></canvas>
+    <p id="offline" class="visually-hidden" role="status">Preparando modo sin conexion...</p>
     <p id="storage" role="alert"></p>
     <noscript>Necesitas activar JavaScript para jugar.</noscript>
   </main>

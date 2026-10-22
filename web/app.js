@@ -21,14 +21,6 @@ window.addEventListener("unhandledrejection", (event) => {
   showError("Ocurrio un error. Revisa tu conexion y recarga la pagina.", event.reason);
 });
 
-document.querySelectorAll("[data-code]").forEach((button) => {
-  button.addEventListener("click", () => {
-    canvas.focus({ preventScroll: true });
-    const code = button.dataset.code;
-    canvas.dispatchEvent(new KeyboardEvent("keydown", { code, key: code, bubbles: true }));
-    canvas.dispatchEvent(new KeyboardEvent("keyup", { code, key: code, bubbles: true }));
-  });
-});
 canvas.addEventListener("pointerdown", () => canvas.focus({ preventScroll: true }));
 canvas.addEventListener("contextmenu", (event) => event.preventDefault());
 
@@ -60,6 +52,7 @@ window.addEventListener("appinstalled", () => {
 async function registerOffline() {
   if (!("serviceWorker" in navigator) || !window.isSecureContext) {
     offline.textContent = "El modo sin conexion requiere HTTPS o localhost y un navegador compatible.";
+    offline.classList.remove("visually-hidden");
     return;
   }
   try {
@@ -75,6 +68,7 @@ async function registerOffline() {
         if (worker.state === "installed") offerUpdate();
         if (worker.state === "redundant") {
           offline.textContent = "No se pudo guardar la nueva version para jugar sin conexion.";
+          offline.classList.remove("visually-hidden");
           console.error("Fallo la instalacion del service worker.");
         }
       });
@@ -96,6 +90,7 @@ async function registerOffline() {
     offline.textContent = "Listo para jugar sin conexion. En iPhone/iPad: Compartir > Agregar a inicio.";
   } catch (error) {
     offline.textContent = "No se pudo preparar el modo sin conexion. El juego sigue disponible en linea.";
+    offline.classList.remove("visually-hidden");
     console.error("No se pudo registrar la PWA.", error);
   }
 }

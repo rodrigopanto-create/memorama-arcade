@@ -4,11 +4,15 @@ mod highscores;
 pub use highscores::{HighScore, HighScores};
 
 fn game_width() -> f32 {
-    if cfg!(target_arch = "wasm32") { 800.0 } else { screen_width() }
+    if cfg!(target_arch = "wasm32") {
+        if screen_height() > screen_width() { 400.0 } else { 800.0 }
+    } else { screen_width() }
 }
 
 fn game_height() -> f32 {
-    if cfg!(target_arch = "wasm32") { 600.0 } else { screen_height() }
+    if cfg!(target_arch = "wasm32") {
+        game_width() * screen_height() / screen_width()
+    } else { screen_height() }
 }
 
 fn game_mouse_position() -> (f32, f32) {
@@ -53,9 +57,22 @@ struct Card {
 
 // Helper para dibujar texto perfectamente centrado horizontalmente
 fn draw_text_centered(text: &str, y: f32, font_size: f32, color: Color) {
+    let width = measure_text(text, None, font_size as u16, 1.0).width;
+    let font_size = font_size * ((game_width() - 32.0) / width.max(1.0)).min(1.0);
     let text_dim = measure_text(text, None, font_size as u16, 1.0);
     let x = (game_width() - text_dim.width) / 2.0;
     draw_text(text, x, y, font_size, color);
+}
+
+fn draw_button(rect: Rect, label: &str, selected: bool) -> bool {
+    let (x, y) = game_mouse_position();
+    let hovered = rect.contains(vec2(x, y));
+    draw_rectangle(rect.x, rect.y, rect.w, rect.h, if selected || hovered { DARKGREEN } else { DARKBLUE });
+    draw_rectangle_lines(rect.x, rect.y, rect.w, rect.h, 2.0, WHITE);
+    let size = 24.0;
+    let text = measure_text(label, None, size as u16, 1.0);
+    draw_text(label, rect.x + (rect.w - text.width) / 2.0, rect.y + (rect.h + text.height) / 2.0, size, WHITE);
+    hovered && is_mouse_button_pressed(MouseButton::Left)
 }
 
 // --- MÓDULO DE AUDIO RETRO (Stubs) ---
@@ -93,6 +110,7 @@ async fn run_title_screen() {
         // Activación por Clic, Enter o Espacio
         if is_mouse_button_pressed(MouseButton::Left) || is_key_pressed(KeyCode::Enter) || is_key_pressed(KeyCode::Space) {
             play_sound_effect("flip");
+            next_game_frame().await;
             break;
         }
 
@@ -147,6 +165,7 @@ async fn run_difficulty_menu() -> Difficulty {
         }
 
         if let Some(diff) = chosen {
+            next_game_frame().await;
             return diff;
         }
 
@@ -173,16 +192,24 @@ async fn run_highscore_screen(final_score: i32, high_scores: &mut HighScores) {
             draw_text_centered(&score_msg, sh / 2.0 - 60.0, 22.0, WHITE);
             draw_text_centered("INGRESA TUS INICIALES:", sh / 2.0 - 20.0, 18.0, LIGHTGRAY);
 
-            let mut display_str = String::new();
             for (i, &ch) in initials.iter().enumerate() {
-                if i == current_char {
-                    display_str.push_str(&format!(" [{}] ", ch as char));
-                } else {
-                    display_str.push_str(&format!("  {}  ", ch as char));
+                let rect = Rect::new(game_width() / 2.0 - 112.0 + i as f32 * 80.0, sh / 2.0, 64.0, 60.0);
+                if draw_button(rect, &(ch as char).to_string(), i == current_char) {
+                    current_char = i;
                 }
             }
-            draw_text_centered(&display_str, sh / 2.0 + 30.0, 32.0, GREEN);
-            draw_text_centered("ARRIBA/ABAJO: Cambiar letra | IZQ/DER: Mover | ENTER/ESPACIO: OK", sh / 2.0 + 80.0, 13.0, GRAY);
+            if is_mouse_button_pressed(MouseButton::Left) {
+                let (x, y) = game_mouse_position();
+                let rect = Rect::new(game_width() / 2.0 - 112.0 + current_char as f32 * 80.0, sh / 2.0, 64.0, 60.0);
+                if rect.contains(vec2(x, y)) {
+                    initials[current_char] = if initials[current_char] == b'Z' { b'A' } else { initials[current_char] + 1 };
+                }
+            }
+            draw_text_centered("TOCA CADA LETRA PARA CAMBIARLA", sh / 2.0 + 90.0, 16.0, GRAY);
+            let save_clicked = draw_button(
+                Rect::new(game_width() / 2.0 - 100.0, sh / 2.0 + 115.0, 200.0, 52.0),
+                "GUARDAR", false,
+            );
 
             // Cambiar valor de la letra actual (Arriba / Abajo)
             if is_key_pressed(KeyCode::Up) {
@@ -205,8 +232,8 @@ async fn run_highscore_screen(final_score: i32, high_scores: &mut HighScores) {
             }
 
             // Confirmar y guardar (Enter o Espacio solo si estás en la última letra o deseas registrar)
-            if is_key_pressed(KeyCode::Enter) || is_key_pressed(KeyCode::Space) {
-                if current_char < 2 {
+            if save_clicked || is_key_pressed(KeyCode::Enter) || is_key_pressed(KeyCode::Space) {
+                if !save_clicked && current_char < 2 {
                     current_char += 1; // Salta a la siguiente letra por comodidad
                 } else {
                     let name = String::from_utf8(initials.to_vec()).unwrap_or_else(|_| "AAA".to_string());
@@ -217,6 +244,7 @@ async fn run_highscore_screen(final_score: i32, high_scores: &mut HighScores) {
                         error!("{}", err);
                         save_error = Some(err);
                     }
+                    next_game_frame().await;
                     break;
                 }
             }
@@ -232,11 +260,12 @@ async fn run_highscore_screen(final_score: i32, high_scores: &mut HighScores) {
 
         draw_text_centered("TABLA DE MEJORES PUNTAJES", 60.0, 24.0, YELLOW);
 
-        let mut y_offset = 120.0;
+        let mut y_offset = 100.0;
+        let row_height = ((sh - 190.0) / 10.0).clamp(16.0, 30.0);
         for (i, hs) in high_scores.entries.iter().enumerate() {
             let entry = format!("{:2}.  {}  ---  {} PTS", i + 1, hs.name, hs.score);
             draw_text_centered(&entry, y_offset, 18.0, WHITE);
-            y_offset += 30.0;
+            y_offset += row_height;
         }
 
         if save_error.is_some() {
@@ -261,12 +290,11 @@ pub async fn run_memorama(difficulty: Difficulty, high_scores: &mut HighScores) 
         next_game_frame().await;
     }
 
-    let (grid_cols, grid_rows) = match difficulty {
-        Difficulty::Easy => (4, 3),
-        Difficulty::Normal => (4, 4),
-        Difficulty::Hard => (6, 4),
+    let total_cards = match difficulty {
+        Difficulty::Easy => 12,
+        Difficulty::Normal => 16,
+        Difficulty::Hard => 24,
     };
-    let total_cards = grid_cols * grid_rows;
 
     let mut values: Vec<usize> = (0..total_cards / 2).chain(0..total_cards / 2).collect();
     values.shuffle();
@@ -330,11 +358,17 @@ pub async fn run_memorama(difficulty: Difficulty, high_scores: &mut HighScores) 
             }
         }
 
-        let card_size = match difficulty {
+        let portrait = game_height() > game_width();
+        let (grid_cols, grid_rows) = grid_dimensions(difficulty, portrait);
+        let gap = 10.0;
+        let card_size = if cfg!(target_arch = "wasm32") {
+            ((game_width() - 32.0 - gap * (grid_cols - 1) as f32) / grid_cols as f32)
+                .min((game_height() - 160.0 - gap * (grid_rows - 1) as f32) / grid_rows as f32)
+                .clamp(20.0, 120.0)
+        } else { match difficulty {
             Difficulty::Hard => 60.0,
             _ => 75.0,
-        };
-        let gap = 10.0;
+        }};
         let total_w = grid_cols as f32 * (card_size + gap) - gap;
         let total_h = grid_rows as f32 * (card_size + gap) - gap;
         let start_x = (game_width() - total_w) / 2.0;
@@ -382,9 +416,9 @@ pub async fn run_memorama(difficulty: Difficulty, high_scores: &mut HighScores) 
             }
         }
 
-        draw_text("MEMORAMA", start_x, start_y - 45.0, 24.0, WHITE);
-        let hud_info = format!("TIEMPO: {:.1}s  |  INTENTOS: {}  |  COMBO: x{}  |  PTS: {}", elapsed_time, attempts, combo, score);
-        draw_text(&hud_info, start_x, start_y - 20.0, 16.0, LIGHTGRAY);
+        draw_text_centered("MEMORAMA", start_y - 75.0, 24.0, WHITE);
+        draw_text_centered(&format!("TIEMPO: {:.1}s  |  INTENTOS: {}", elapsed_time, attempts), start_y - 48.0, 18.0, LIGHTGRAY);
+        draw_text_centered(&format!("COMBO: x{}  |  PTS: {}", combo, score), start_y - 22.0, 18.0, LIGHTGRAY);
 
         for i in 0..cards.len() {
             let col = i % grid_cols;
@@ -401,12 +435,33 @@ pub async fn run_memorama(difficulty: Difficulty, high_scores: &mut HighScores) 
             draw_rectangle(x, y, card_size, card_size, bg_color);
             draw_rectangle_lines(x, y, card_size, card_size, 2.0, BLACK);
 
-            let font_size = if card_size < 70.0 { 32.0 } else { 40.0 };
-            let offset_x = if cards[i].state == CardState::Hidden { card_size * 0.35 } else { card_size * 0.3 };
-            draw_text(&text, x + offset_x, y + card_size * 0.65, font_size, text_color);
+            let font_size = (card_size * 0.5).min(48.0);
+            let text_size = measure_text(&text, None, font_size as u16, 1.0);
+            draw_text(&text, x + (card_size - text_size.width) / 2.0, y + (card_size + text_size.height) / 2.0, font_size, text_color);
         }
 
         next_game_frame().await
+    }
+}
+
+fn grid_dimensions(difficulty: Difficulty, portrait: bool) -> (usize, usize) {
+    match (difficulty, portrait) {
+        (Difficulty::Easy, true) => (3, 4),
+        (Difficulty::Easy, false) => (4, 3),
+        (Difficulty::Normal, _) => (4, 4),
+        (Difficulty::Hard, true) => (4, 6),
+        (Difficulty::Hard, false) => (6, 4),
+    }
+}
+
+#[test]
+fn portrait_grids_preserve_pairs() {
+    for (difficulty, count) in [(Difficulty::Easy, 12), (Difficulty::Normal, 16), (Difficulty::Hard, 24)] {
+        for portrait in [false, true] {
+            let (cols, rows) = grid_dimensions(difficulty, portrait);
+            assert_eq!(cols * rows, count);
+            if portrait { assert!(rows >= cols); }
+        }
     }
 }
 
