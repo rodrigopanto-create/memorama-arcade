@@ -31,6 +31,11 @@ wasm-bindgen ni un CDN; respeta `Cargo.lock` y `CARGO_TARGET_DIR`.
 
 ## Publicar e instalar
 
+- **GitHub Pages:** en **Settings > Pages > Source** selecciona **GitHub Actions**.
+  El workflow `.github/workflows/pages.yml` prueba, compila y publica `dist/`
+  automáticamente con cada push a `main`; también admite ejecución manual
+  desde **Actions > Deploy PWA to GitHub Pages > Run workflow**.
+  URL: <https://rodrigopanto-create.github.io/memorama-arcade/>.
 - Sube **todo el contenido de `dist/`** a un hosting estático con **HTTPS**,
   por ejemplo GitHub Pages o tu servidor. También funciona bajo una subruta
   como `/memorama/`, sin cambiar los archivos.
